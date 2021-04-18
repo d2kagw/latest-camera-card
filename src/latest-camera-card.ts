@@ -48,8 +48,7 @@ export class LatestCameraCard extends LitElement {
   constructor() {
     super();
 
-    this.lastRefresh = null;
-    this.refreshTimeout = null;
+    this.activeCameras = [];
   }
 
   public static async getConfigElement(): Promise<LovelaceCardEditor> {
@@ -62,8 +61,7 @@ export class LatestCameraCard extends LitElement {
 
   @property({ attribute: false }) public hass!: HomeAssistant;
   @internalProperty() private config!: LatestCameraCardConfig;
-  @internalProperty() private lastRefresh: Date|null;
-  @internalProperty() private refreshTimeout: any;
+  @internalProperty() private activeCameras: Array<CameraConfig>;
 
   public setConfig(config: LatestCameraCardConfig): void {
     if (!config) {
@@ -75,57 +73,62 @@ export class LatestCameraCard extends LitElement {
     }
 
     this.config = {
-      name: 'LatestCamera',
+      name: 'Latest Camera',
       ...config,
     };
 
     console.info("Latest camera card config:", this.config);
-
-    this._refresh();
   }
 
   protected shouldUpdate(changedProps: PropertyValues): boolean {
-    if (!this.config) {
-      return false;
+    if (changedProps.has('config')) {
+      return true;
     }
 
-    return hasConfigOrEntityChanged(this, changedProps, false);
-  }
+    const equals = (a: Array<any>, b: Array<any>): boolean => JSON.stringify(a) === JSON.stringify(b);
 
-  protected _refresh(): void {
-    const seconds = (this.config.interval||60);
-    setTimeout(() => { this.lastRefresh = new Date() }, seconds * 1000);
+    let newActiveCameras: Array<CameraConfig> = [];
+    const oldHass = changedProps.get('hass') as HomeAssistant | undefined;
+    if (oldHass) {
+      newActiveCameras = this.config.cameras.filter((camera) => {
+        return this.hass.states[camera.motion_entity].state === "on"
+      });
+    }
 
-    console.info("Latest camera card", "refreshing feed in ", seconds, "seconds");
+    const update = !equals(newActiveCameras, this.activeCameras);
+    this.activeCameras = newActiveCameras;
+
+    return update;
   }
 
   protected render(): TemplateResult | void {
     console.info("Latest camera card", "updating");
-    const cameraSort = (a: CameraConfig, b: CameraConfig): number => {
-      return Date.parse(this.hass.states[b.motion_entity].attributes.last_tripped_time) -
-        Date.parse(this.hass.states[a.motion_entity].attributes.last_tripped_time);
-    }
 
-    const activeCamera = this.config.cameras.slice().sort(cameraSort)[0];
+    const activeCameras = this.config.cameras.filter(camera => this.hass.states[camera.motion_entity].state === "on");
 
     return html`
       <ha-card
         @action=${this._handleAction}
         tabindex="0"
       >
-        <div class="live-camera-card">
-          <hui-image
-            .hass=${this.hass}
-            .cameraImage=${activeCamera.camera_entity}
-            .cameraView=${"live"}
-            .entity=${activeCamera.camera_entity}
-          ></hui-image>
-        </div>
+        ${activeCameras.length === 0 ? html`<h1>No movement</h1>` : html``}
+        ${activeCameras.map((camera) => {
+          return html`
+            <div class="live-camera-card">
+              <hui-image
+                .hass=${this.hass}
+                .cameraImage=${camera.camera_entity}
+                .cameraView=${"live"}
+                .entity=${camera.camera_entity}
+              ></hui-image>
+            </div>
+          `;
+        })}
       </ha-card>
     `;
   }
 
-  private _handleAction(ev: ActionHandlerEvent): void {
+  public _handleAction(ev: ActionHandlerEvent): void {
     // TODO: Show the camera feed for the active camera
     console.warn("handle", ev);
     // if (this.hass && this.config && ev.detail.action) {
