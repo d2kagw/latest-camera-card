@@ -17,4 +17,5 @@ export interface LatestCameraCardConfig extends LovelaceCardConfig {
   type: string;
   cameras: Array<CameraConfig>;
   interval?: number;
+  auto_hide?: boolean;
 }

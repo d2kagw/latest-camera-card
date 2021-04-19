@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/camelcase */
 import {
   LitElement,
   html,
@@ -76,6 +77,7 @@ export class LatestCameraCard extends LitElement {
 
     this.config = {
       name: 'Latest Camera',
+      auto_hide: false,
       ...config,
     };
 
@@ -106,14 +108,12 @@ export class LatestCameraCard extends LitElement {
   }
 
   protected render(): TemplateResult | void {
-    console.info("rendering");
-
     return html`
       <ha-card
         @action=${this._handleAction}
         tabindex="0"
       >
-        ${this.activeCameras.length === 0 ? html`
+        ${!this.config.auto_hide && this.activeCameras.length === 0 ? html`
             <div class="live-camera-card live-camera-card-no-movement">
               <span>
                 No Movement Detected
