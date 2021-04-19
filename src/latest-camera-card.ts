@@ -49,6 +49,7 @@ export class LatestCameraCard extends LitElement {
     super();
 
     this.activeCameras = [];
+    this.displayTimeout = null;
   }
 
   public static async getConfigElement(): Promise<LovelaceCardEditor> {
@@ -61,7 +62,8 @@ export class LatestCameraCard extends LitElement {
 
   @property({ attribute: false }) public hass!: HomeAssistant;
   @internalProperty() private config!: LatestCameraCardConfig;
-  @internalProperty() private activeCameras: Array<CameraConfig>;
+  @property({ type: Array, attribute: true }) public activeCameras: Array<CameraConfig>;
+  @internalProperty() private displayTimeout: any;
 
   public setConfig(config: LatestCameraCardConfig): void {
     if (!config) {
@@ -96,23 +98,29 @@ export class LatestCameraCard extends LitElement {
     }
 
     const update = !equals(newActiveCameras, this.activeCameras);
-    this.activeCameras = newActiveCameras;
+    if (update) {
+      this.activeCameras = newActiveCameras;
+    }
 
     return update;
   }
 
   protected render(): TemplateResult | void {
-    console.info("Latest camera card", "updating");
-
-    const activeCameras = this.config.cameras.filter(camera => this.hass.states[camera.motion_entity].state === "on");
+    console.info("rendering");
 
     return html`
       <ha-card
         @action=${this._handleAction}
         tabindex="0"
       >
-        ${activeCameras.length === 0 ? html`<h1>No movement</h1>` : html``}
-        ${activeCameras.map((camera) => {
+        ${this.activeCameras.length === 0 ? html`
+            <div class="live-camera-card live-camera-card-no-movement">
+              <span>
+                No Movement Detected
+              </span>
+            </div>
+          ` : html``}
+        ${this.activeCameras.map((camera) => {
           return html`
             <div class="live-camera-card">
               <hui-image
@@ -156,6 +164,15 @@ export class LatestCameraCard extends LitElement {
   }
 
   static get styles(): CSSResult {
-    return css``;
+    return css`
+      .live-camera-card {
+        aspect-ratio: 16/9;
+      }
+      .live-camera-card-no-movement {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    `;
   }
 }
